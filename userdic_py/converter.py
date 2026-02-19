@@ -110,7 +110,9 @@ def dump_records(dic_type: str, records: list[str], hinshi_t: dict[str, dict[str
         return plistlib.dumps(payload, fmt=plistlib.FMT_XML, sort_keys=False)
 
     text = "\n".join(lines) + "\n"
-    if dic_type in {"msime", "atok"}:
+    if dic_type == "msime":
+        return b"\xff\xfe" + text.encode("utf-16-le")
+    if dic_type == "atok":
         return text.encode("utf-16")
     if dic_type in {"wnn", "canna"}:
         return text.encode("euc_jp", errors="replace")
