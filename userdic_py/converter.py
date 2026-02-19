@@ -5,6 +5,7 @@ import plistlib
 import sys
 from pathlib import Path
 
+from ._version import __version__
 from .hinshi import load_hinshi_tables
 from .normkana import norm_kana
 
@@ -121,9 +122,10 @@ def dump_records(dic_type: str, records: list[str], hinshi_t: dict[str, dict[str
 
 def run(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="userdic-py", description="Convert Japanese IM dictionary files")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("from_type")
     parser.add_argument("to_type")
-    parser.add_argument("--base-dir", default=str(Path(__file__).resolve().parents[2]))
+    parser.add_argument("--base-dir", default=str(Path(__file__).resolve().parents[1]))
     args = parser.parse_args(argv)
 
     if args.from_type not in SUPPORTED or args.to_type not in SUPPORTED:
