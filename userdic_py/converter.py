@@ -81,12 +81,20 @@ def header(dic_type: str, n: int) -> str | None:
 def decode_input(raw: bytes, dic_type: str) -> str:
     # Keep compatibility with the original implementation order so UTF-16LE
     # text without BOM is not decoded as UTF-8 with embedded NUL bytes.
-    #
-    # MS-IME text dictionaries are usually UTF-16LE, but some tools export
-    # UTF-8. Try UTF-8 before legacy Japanese encodings for MS-IME input.
     encodings = ["utf-16", "cp932", "euc_jp", "utf-8"]
     if dic_type == "msime":
-        encodings = ["utf-16", "utf-8", "cp932", "euc_jp"]
+        # MS-IME dictionaries may be UTF-16 or UTF-8. For UTF-8 input,
+        # blindly decoding with UTF-16 can succeed but produce mojibake.
+        #
+        # 1. BOM always wins.
+        # 2. If NUL bytes are present, prefer UTF-16LE as a strong signal.
+        # 3. Otherwise, prefer UTF-8 then legacy Japanese encodings.
+        if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+            return raw.decode("utf-16")
+        if b"\x00" in raw:
+            encodings = ["utf-16-le", "utf-8", "cp932", "euc_jp"]
+        else:
+            encodings = ["utf-8", "cp932", "euc_jp", "utf-16-le"]
 
     for enc in encodings:
         try:
