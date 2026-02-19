@@ -94,7 +94,9 @@ def load_records(dic_type: str, raw: bytes, hinshi_f: dict[str, dict[str, str]])
         plist = plistlib.loads(raw)
         lines = [f"{d.get('shortcut', '')}\t{d.get('phrase', '')}" for d in plist if isinstance(d, dict)]
     else:
-        lines = decode_input(raw).splitlines()
+        # Accept any newline style from input files (LF, CRLF, CR).
+        text = decode_input(raw).replace("\r\n", "\n").replace("\r", "\n")
+        lines = text.split("\n")
     out = [parse_record(dic_type, line, hinshi_f) for line in lines]
     return [x for x in out if x is not None]
 
@@ -110,7 +112,8 @@ def dump_records(dic_type: str, records: list[str], hinshi_t: dict[str, dict[str
             payload.append({"phrase": word, "shortcut": pron})
         return plistlib.dumps(payload, fmt=plistlib.FMT_XML, sort_keys=False)
 
-    text = "\n".join(lines) + "\n"
+    newline = "\r\n" if dic_type in {"msime", "atok"} else "\n"
+    text = newline.join(lines) + newline
     if dic_type == "msime":
         return b"\xff\xfe" + text.encode("utf-16-le")
     if dic_type == "atok":
