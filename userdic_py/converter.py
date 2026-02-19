@@ -79,7 +79,9 @@ def header(dic_type: str, n: int) -> str | None:
 
 
 def decode_input(raw: bytes) -> str:
-    for enc in ["utf-8", "utf-16", "cp932"]:
+    # Keep compatibility with the original implementation order so UTF-16LE
+    # text without BOM is not decoded as UTF-8 with embedded NUL bytes.
+    for enc in ["utf-16", "cp932", "euc_jp", "utf-8"]:
         try:
             return raw.decode(enc)
         except UnicodeDecodeError:
