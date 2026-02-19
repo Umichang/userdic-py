@@ -4,7 +4,7 @@
 
 ## インストール
 
-`/usr/local/bin` にコマンドをインストールするには、次を実行します。
+`/usr/local/bin` にコマンドをインストールするには、次を実行します（`userdic_py` 本体も `/usr/local/lib/userdic-py` に配置します）。
 
 ```bash
 make install
@@ -14,6 +14,12 @@ make install
 
 ```bash
 make install PREFIX=/path/to/prefix
+```
+
+削除する場合:
+
+```bash
+make uninstall
 ```
 
 ## 使い方
