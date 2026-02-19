@@ -78,10 +78,17 @@ def header(dic_type: str, n: int) -> str | None:
     return None
 
 
-def decode_input(raw: bytes) -> str:
+def decode_input(raw: bytes, dic_type: str) -> str:
     # Keep compatibility with the original implementation order so UTF-16LE
     # text without BOM is not decoded as UTF-8 with embedded NUL bytes.
-    for enc in ["utf-16", "cp932", "euc_jp", "utf-8"]:
+    #
+    # MS-IME text dictionaries are usually UTF-16LE, but some tools export
+    # UTF-8. Try UTF-8 before legacy Japanese encodings for MS-IME input.
+    encodings = ["utf-16", "cp932", "euc_jp", "utf-8"]
+    if dic_type == "msime":
+        encodings = ["utf-16", "utf-8", "cp932", "euc_jp"]
+
+    for enc in encodings:
         try:
             return raw.decode(enc)
         except UnicodeDecodeError:
@@ -95,7 +102,7 @@ def load_records(dic_type: str, raw: bytes, hinshi_f: dict[str, dict[str, str]])
         lines = [f"{d.get('shortcut', '')}\t{d.get('phrase', '')}" for d in plist if isinstance(d, dict)]
     else:
         # Accept any newline style from input files (LF, CRLF, CR).
-        text = decode_input(raw).replace("\r\n", "\n").replace("\r", "\n")
+        text = decode_input(raw, dic_type).replace("\r\n", "\n").replace("\r", "\n")
         lines = text.split("\n")
     out = [parse_record(dic_type, line, hinshi_f) for line in lines]
     return [x for x in out if x is not None]
