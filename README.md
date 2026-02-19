@@ -2,6 +2,20 @@
 
 `userdic-ng` の Ruby 実装を Python に移植した辞書変換ツールです。
 
+## インストール
+
+`/usr/local/bin` にコマンドをインストールするには、次を実行します。
+
+```bash
+make install
+```
+
+別のインストール先を使う場合は `PREFIX` を指定できます。
+
+```bash
+make install PREFIX=/path/to/prefix
+```
+
 ## 使い方
 
 ```bash
