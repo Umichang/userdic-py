@@ -1,0 +1,33 @@
+# userdic-py
+
+`userdic-ng` の Ruby 実装を Python に移植した辞書変換ツールです。
+
+## 使い方
+
+```bash
+./userdic.py <from> <to> < input > output
+```
+
+`from` / `to` は次を指定できます。
+
+- `mozc`
+- `google`
+- `anthy`
+- `canna`
+- `atok`
+- `msime`
+- `wnn`
+- `apple`
+- `generic`
+
+## 例
+
+```bash
+./userdic.py generic mozc < generic.txt > mozc.txt
+```
+
+## 実装方針
+
+- 品詞変換表は既存リポジトリ直下の `hinshi` をそのまま読み込みます。
+- 旧実装に合わせ、入力時は `utf-16`, `cp932`, `euc_jp`, `utf-8` の順でデコードを試行します。
+- `apple` 形式は plist(XML) を読み書きします。
