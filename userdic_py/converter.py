@@ -81,7 +81,7 @@ def header(dic_type: str, n: int) -> str | None:
 
 
 def decode_input(raw: bytes) -> str:
-    for enc in ["utf-16", "cp932", "euc_jp", "utf-8"]:
+    for enc in ["utf-8", "utf-16", "cp932"]:
         try:
             return raw.decode(enc)
         except UnicodeDecodeError:
