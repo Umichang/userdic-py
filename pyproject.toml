@@ -10,3 +10,6 @@ userdic-py = "userdic_py.converter:run"
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+userdic_py = ["hinshi"]
