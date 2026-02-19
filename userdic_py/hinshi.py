@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from importlib.resources import files
 from pathlib import Path
 
 TYPES = ["generic", "mozc", "anthy", "atok", "msime", "wnn"]
@@ -27,8 +28,9 @@ def _make_hash(rows: list[str], from_idx: int, to_idx: int) -> dict[str, str]:
     return mapping
 
 
-def load_hinshi_tables(base_dir: Path) -> tuple[dict[str, dict[str, str]], dict[str, dict[str, str]]]:
-    rows = _load_hinshi_lines(base_dir / "hinshi")
+def load_hinshi_tables(base_dir: Path | None = None) -> tuple[dict[str, dict[str, str]], dict[str, dict[str, str]]]:
+    hinshi_path = base_dir / "hinshi" if base_dir else Path(str(files("userdic_py").joinpath("hinshi")))
+    rows = _load_hinshi_lines(hinshi_path)
     hinshi_f: dict[str, dict[str, str]] = {}
     hinshi_t: dict[str, dict[str, str]] = {}
     for i, dic_type in enumerate(TYPES):

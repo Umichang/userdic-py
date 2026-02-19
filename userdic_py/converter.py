@@ -3,8 +3,6 @@ from __future__ import annotations
 import argparse
 import plistlib
 import sys
-from pathlib import Path
-
 from ._version import __version__
 from .hinshi import load_hinshi_tables
 from .normkana import norm_kana
@@ -125,13 +123,12 @@ def run(argv: list[str] | None = None) -> int:
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("from_type")
     parser.add_argument("to_type")
-    parser.add_argument("--base-dir", default=str(Path(__file__).resolve().parents[1]))
     args = parser.parse_args(argv)
 
     if args.from_type not in SUPPORTED or args.to_type not in SUPPORTED:
         parser.error("from/to must be one of: mozc, google, anthy, canna, atok, msime, wnn, apple, generic")
 
-    hinshi_f, hinshi_t = load_hinshi_tables(Path(args.base_dir))
+    hinshi_f, hinshi_t = load_hinshi_tables()
     records = load_records(args.from_type, sys.stdin.buffer.read(), hinshi_f)
     sys.stdout.buffer.write(dump_records(args.to_type, records, hinshi_t))
     return 0
