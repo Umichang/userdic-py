@@ -11,7 +11,7 @@ SUPPORTED = {"mozc", "google", "anthy", "canna", "atok", "msime", "wnn", "apple"
 
 
 def parse_record(dic_type: str, line: str, hinshi_f: dict[str, dict[str, str]]) -> str | None:
-    s = line.strip()
+    s = line.strip().lstrip("\ufeff")
     if not s or s.startswith("!") or s.startswith("\\"):
         return None
 
