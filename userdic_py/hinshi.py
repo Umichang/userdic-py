@@ -3,7 +3,7 @@ from __future__ import annotations
 from importlib.resources import files
 from pathlib import Path
 
-TYPES = ["generic", "mozc", "anthy", "atok", "msime", "wnn"]
+TYPE_TO_COL = {"generic": 0, "mozc": 1, "anthy": 2, "canna": 2, "atok": 3, "msime": 4, "dctx": 4, "wnn": 5}
 
 
 def _load_hinshi_lines(path: Path) -> list[str]:
@@ -33,7 +33,7 @@ def load_hinshi_tables(base_dir: Path | None = None) -> tuple[dict[str, dict[str
     rows = _load_hinshi_lines(hinshi_path)
     hinshi_f: dict[str, dict[str, str]] = {}
     hinshi_t: dict[str, dict[str, str]] = {}
-    for i, dic_type in enumerate(TYPES):
-        hinshi_f[dic_type] = _make_hash(rows, i, 0)
-        hinshi_t[dic_type] = _make_hash(rows, 0, i)
+    for dic_type, col in TYPE_TO_COL.items():
+        hinshi_f[dic_type] = _make_hash(rows, col, 0)
+        hinshi_t[dic_type] = _make_hash(rows, 0, col)
     return hinshi_f, hinshi_t
