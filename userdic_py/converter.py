@@ -3,11 +3,15 @@ from __future__ import annotations
 import argparse
 import plistlib
 import sys
+import xml.etree.ElementTree as ET
 from ._version import __version__
 from .hinshi import load_hinshi_tables
 from .normkana import norm_kana
 
-SUPPORTED = {"mozc", "google", "anthy", "canna", "atok", "msime", "wnn", "apple", "generic"}
+SUPPORTED = {"mozc", "google", "anthy", "canna", "atok", "msime", "dctx", "wnn", "apple", "generic"}
+
+DCTX_NS = "http://www.microsoft.com/ime/dctx"
+XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 
 
 def parse_record(dic_type: str, line: str, hinshi_f: dict[str, dict[str, str]]) -> str | None:
@@ -55,7 +59,7 @@ def format_record(dic_type: str, line: str, hinshi_t: dict[str, dict[str, str]])
     if line is None:
         return None
     pron, word, prop = line.split("\t")
-    if dic_type in {"generic", "mozc", "atok", "msime", "wnn"}:
+    if dic_type in {"generic", "mozc", "atok", "msime", "dctx", "wnn"}:
         return f"{pron}\t{word}\t{hinshi_t[dic_type][prop]}"
     if dic_type == "apple":
         return f"{pron}\t{word}"
@@ -76,6 +80,56 @@ def header(dic_type: str, n: int) -> str | None:
     if dic_type == "wnn":
         return f"\\comment \n\\total {n}\n"
     return None
+
+
+def parse_dctx_records(raw: bytes, hinshi_f: dict[str, dict[str, str]]) -> list[str]:
+    text = decode_input(raw, "msime")
+    root = ET.fromstring(text)
+
+    records: list[str] = []
+    ns_words = root.findall(f".//{{{DCTX_NS}}}Word")
+    words = ns_words if ns_words else root.findall(".//Word")
+    for elem in words:
+        pron = (elem.findtext(f"{{{DCTX_NS}}}Reading") or elem.findtext("Reading") or "").strip()
+        word = (elem.findtext(f"{{{DCTX_NS}}}Text") or elem.findtext("Text") or "").strip()
+        prop = (elem.findtext(f"{{{DCTX_NS}}}PartOfSpeech") or elem.findtext("PartOfSpeech") or "").strip()
+        line = parse_record("msime", f"{pron}\t{word}\t{prop}", hinshi_f)
+        if line is not None:
+            records.append(line)
+    return records
+
+
+def dump_dctx_records(records: list[str], hinshi_t: dict[str, dict[str, str]]) -> bytes:
+    def esc(value: str) -> str:
+        return (
+            value.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("'", "&apos;")
+        )
+
+    lines = [
+        '<?xml version="1.0" encoding="utf-16le"?>',
+        f'<ns1:Dictionary xmlns:ns1="{DCTX_NS}" xmlns:xsi="{XSI_NS}">',
+        "<ns1:Words>",
+    ]
+
+    for line in records:
+        pron, word, prop = line.split("\t")
+        lines.extend(
+            [
+                "<ns1:Word>",
+                f"<ns1:Reading>{esc(pron)}</ns1:Reading>",
+                f"<ns1:Text>{esc(word)}</ns1:Text>",
+                f"<ns1:PartOfSpeech>{esc(hinshi_t['msime'][prop])}</ns1:PartOfSpeech>",
+                "</ns1:Word>",
+            ]
+        )
+
+    lines.extend(["</ns1:Words>", "</ns1:Dictionary>"])
+    text = "\r\n".join(lines) + "\r\n"
+    return b"\xff\xfe" + text.encode("utf-16-le")
 
 
 def decode_input(raw: bytes, dic_type: str) -> str:
@@ -108,6 +162,8 @@ def load_records(dic_type: str, raw: bytes, hinshi_f: dict[str, dict[str, str]])
     if dic_type == "apple":
         plist = plistlib.loads(raw)
         lines = [f"{d.get('shortcut', '')}\t{d.get('phrase', '')}" for d in plist if isinstance(d, dict)]
+    elif dic_type == "dctx":
+        return parse_dctx_records(raw, hinshi_f)
     else:
         # Accept any newline style from input files (LF, CRLF, CR).
         text = decode_input(raw, dic_type).replace("\r\n", "\n").replace("\r", "\n")
@@ -117,6 +173,9 @@ def load_records(dic_type: str, raw: bytes, hinshi_f: dict[str, dict[str, str]])
 
 
 def dump_records(dic_type: str, records: list[str], hinshi_t: dict[str, dict[str, str]]) -> bytes:
+    if dic_type == "dctx":
+        return dump_dctx_records(records, hinshi_t)
+
     lines = [header(dic_type, len(records))] + [format_record(dic_type, r, hinshi_t) for r in records]
     lines = [x for x in lines if x is not None]
 
@@ -146,7 +205,7 @@ def run(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.from_type not in SUPPORTED or args.to_type not in SUPPORTED:
-        parser.error("from/to must be one of: mozc, google, anthy, canna, atok, msime, wnn, apple, generic")
+        parser.error("from/to must be one of: mozc, google, anthy, canna, atok, msime, dctx, wnn, apple, generic")
 
     hinshi_f, hinshi_t = load_hinshi_tables()
     records = load_records(args.from_type, sys.stdin.buffer.read(), hinshi_f)
