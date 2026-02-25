@@ -14,6 +14,17 @@ DCTX_NS = "http://www.microsoft.com/ime/dctx"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 
 
+def _sanitize_xml_text(value: str) -> str:
+    return "".join(
+        ch
+        for ch in value
+        if ch in "\t\n\r"
+        or 0x20 <= ord(ch) <= 0xD7FF
+        or 0xE000 <= ord(ch) <= 0xFFFD
+        or 0x10000 <= ord(ch) <= 0x10FFFF
+    )
+
+
 def parse_record(dic_type: str, line: str, hinshi_f: dict[str, dict[str, str]]) -> str | None:
     s = line.strip().lstrip("\ufeff")
     if not s or s.startswith("!") or s.startswith("\\"):
@@ -120,15 +131,16 @@ def dump_dctx_records(records: list[str], hinshi_t: dict[str, dict[str, str]]) -
         lines.extend(
             [
                 "<ns1:Word>",
-                f"<ns1:Reading>{esc(pron)}</ns1:Reading>",
-                f"<ns1:Text>{esc(word)}</ns1:Text>",
-                f"<ns1:PartOfSpeech>{esc(hinshi_t['msime'][prop])}</ns1:PartOfSpeech>",
+                f"<ns1:Reading>{esc(_sanitize_xml_text(pron))}</ns1:Reading>",
+                f"<ns1:Text>{esc(_sanitize_xml_text(word))}</ns1:Text>",
+                f"<ns1:PartOfSpeech>{esc(_sanitize_xml_text(hinshi_t['msime'][prop]))}</ns1:PartOfSpeech>",
                 "</ns1:Word>",
             ]
         )
 
     lines.extend(["</ns1:Words>", "</ns1:Dictionary>"])
     text = "\r\n".join(lines) + "\r\n"
+    ET.fromstring(text)
     return b"\xff\xfe" + text.encode("utf-16-le")
 
 
