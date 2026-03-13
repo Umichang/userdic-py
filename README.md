@@ -51,7 +51,7 @@ make uninstall
 ```
 
 ```bash
-./userdic.py --input-encoding cp932 --output-encoding utf-8 msime apple < msime.txt > apple.plist
+./userdic.py --input-encoding cp932 --output-encoding utf-8 msime generic < msime.txt > generic.txt
 ```
 
 `--input-encoding` と `--output-encoding` には Python の codec 名を指定します。
