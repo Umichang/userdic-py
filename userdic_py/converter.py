@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import codecs
 import plistlib
 import sys
 from ._version import __version__
@@ -78,49 +79,69 @@ def header(dic_type: str, n: int) -> str | None:
     return None
 
 
-def decode_input(raw: bytes, dic_type: str) -> str:
-    # Keep compatibility with the original implementation order so UTF-16LE
-    # text without BOM is not decoded as UTF-8 with embedded NUL bytes.
-    encodings = ["utf-16", "cp932", "euc_jp", "utf-8"]
-    if dic_type == "msime":
-        # MS-IME dictionaries may be UTF-16 or UTF-8. For UTF-8 input,
-        # blindly decoding with UTF-16 can succeed but produce mojibake.
-        #
-        # 1. BOM always wins.
-        # 2. If NUL bytes are present, prefer UTF-16LE as a strong signal.
-        # 3. Otherwise, prefer UTF-8 then legacy Japanese encodings.
-        if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
-            return raw.decode("utf-16")
-        if b"\x00" in raw:
-            encodings = ["utf-16-le", "utf-8", "cp932", "euc_jp"]
-        else:
-            encodings = ["utf-8", "cp932", "euc_jp", "utf-16-le"]
+def decode_input(raw: bytes, dic_type: str, input_encoding: str | None = None) -> str:
+    if input_encoding is not None:
+        try:
+            return raw.decode(input_encoding)
+        except UnicodeDecodeError as exc:
+            raise ValueError(f"failed to decode input as {input_encoding}: {exc}") from exc
 
+    # Keep compatibility with userdic-ng's fallback order while avoiding
+    # Python's permissive utf-16 decode on non-UTF-16 byte streams.
+    encodings = ["utf-16", "cp932", "euc_jp", "utf-8"]
     for enc in encodings:
         try:
+            if enc == "utf-16" and not raw.startswith((b"\xff\xfe", b"\xfe\xff")) and b"\x00" not in raw:
+                continue
             return raw.decode(enc)
         except UnicodeDecodeError:
             continue
     return raw.decode("utf-8", errors="replace")
 
 
-def load_records(dic_type: str, raw: bytes, hinshi_f: dict[str, dict[str, str]]) -> list[str]:
+def load_records(
+    dic_type: str,
+    raw: bytes,
+    hinshi_f: dict[str, dict[str, str]],
+    input_encoding: str | None = None,
+) -> list[str]:
     if dic_type == "apple":
+        if input_encoding is not None:
+            raise ValueError("--input-encoding is not supported with apple input")
         plist = plistlib.loads(raw)
         lines = [f"{d.get('shortcut', '')}\t{d.get('phrase', '')}" for d in plist if isinstance(d, dict)]
     else:
         # Accept any newline style from input files (LF, CRLF, CR).
-        text = decode_input(raw, dic_type).replace("\r\n", "\n").replace("\r", "\n")
+        text = decode_input(raw, dic_type, input_encoding).replace("\r\n", "\n").replace("\r", "\n")
         lines = text.split("\n")
     out = [parse_record(dic_type, line, hinshi_f) for line in lines]
     return [x for x in out if x is not None]
 
 
-def dump_records(dic_type: str, records: list[str], hinshi_t: dict[str, dict[str, str]]) -> bytes:
+def default_output_encoding(dic_type: str) -> str:
+    if dic_type in {"msime", "atok"}:
+        return "utf-16"
+    if dic_type in {"wnn", "canna"}:
+        return "euc_jp"
+    return "utf-8"
+
+
+def encode_text_output(text: str, encoding: str) -> bytes:
+    return text.encode(encoding, errors="replace")
+
+
+def dump_records(
+    dic_type: str,
+    records: list[str],
+    hinshi_t: dict[str, dict[str, str]],
+    output_encoding: str | None = None,
+) -> bytes:
     lines = [header(dic_type, len(records))] + [format_record(dic_type, r, hinshi_t) for r in records]
     lines = [x for x in lines if x is not None]
 
     if dic_type == "apple":
+        if output_encoding is not None:
+            raise ValueError("--output-encoding is not supported with apple output")
         payload = []
         for line in lines:
             pron, word = line.split("\t")
@@ -129,28 +150,39 @@ def dump_records(dic_type: str, records: list[str], hinshi_t: dict[str, dict[str
 
     newline = "\r\n" if dic_type in {"msime", "atok"} else "\n"
     text = newline.join(lines) + newline
-    if dic_type == "msime":
-        return b"\xff\xfe" + text.encode("utf-16-le")
-    if dic_type == "atok":
-        return text.encode("utf-16")
-    if dic_type in {"wnn", "canna"}:
-        return text.encode("euc_jp", errors="replace")
-    return text.encode("utf-8", errors="replace")
+    return encode_text_output(text, output_encoding or default_output_encoding(dic_type))
+
+
+def validate_encoding(name: str) -> str:
+    try:
+        codecs.lookup(name)
+    except LookupError as exc:
+        raise argparse.ArgumentTypeError(f"unknown encoding: {name}") from exc
+    return name
 
 
 def run(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="userdic-py", description="Convert Japanese IM dictionary files")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument("--input-encoding", type=validate_encoding, help="read text input with the specified Python codec")
+    parser.add_argument("--output-encoding", type=validate_encoding, help="write text output with the specified Python codec")
     parser.add_argument("from_type")
     parser.add_argument("to_type")
     args = parser.parse_args(argv)
 
     if args.from_type not in SUPPORTED or args.to_type not in SUPPORTED:
         parser.error("from/to must be one of: mozc, google, anthy, canna, atok, msime, wnn, apple, generic")
+    if args.from_type == "apple" and args.input_encoding is not None:
+        parser.error("--input-encoding is not supported with apple input")
+    if args.to_type == "apple" and args.output_encoding is not None:
+        parser.error("--output-encoding is not supported with apple output")
 
     hinshi_f, hinshi_t = load_hinshi_tables()
-    records = load_records(args.from_type, sys.stdin.buffer.read(), hinshi_f)
-    sys.stdout.buffer.write(dump_records(args.to_type, records, hinshi_t))
+    try:
+        records = load_records(args.from_type, sys.stdin.buffer.read(), hinshi_f, args.input_encoding)
+        sys.stdout.buffer.write(dump_records(args.to_type, records, hinshi_t, args.output_encoding))
+    except ValueError as exc:
+        parser.exit(1, f"userdic-py: error: {exc}\n")
     return 0
 
 
