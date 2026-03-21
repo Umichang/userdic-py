@@ -1,17 +1,20 @@
+ifeq ($(OS),Windows_NT)
+PREFIX ?= $(LOCALAPPDATA)/userdic-py
+PYTHON ?= py -3
+WINDOWS_PYTHON ?= py -3
+else
 PREFIX ?= /usr/local
+PYTHON ?= python3
+WINDOWS_PYTHON ?= python
+endif
+
 BINDIR ?= $(PREFIX)/bin
 LIBDIR ?= $(PREFIX)/lib/userdic-py
 
 .PHONY: install uninstall
 
 install:
-	install -d $(BINDIR)
-	install -d $(LIBDIR)/userdic_py
-	for f in userdic_py/*.py; do install -m 644 $$f $(LIBDIR)/userdic_py/; done
-	install -m 644 userdic_py/hinshi $(LIBDIR)/userdic_py/hinshi
-	printf '%s\n' '#!/usr/bin/env python3' 'from pathlib import Path' 'import sys' '' 'sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib" / "userdic-py"))' '' 'from userdic_py.converter import run' '' 'if __name__ == "__main__":' '    raise SystemExit(run())' > $(BINDIR)/userdic-py
-	chmod 755 $(BINDIR)/userdic-py
+	$(PYTHON) scripts/make_install.py --bindir "$(BINDIR)" --libdir "$(LIBDIR)" --windows-python-launcher "$(WINDOWS_PYTHON)"
 
 uninstall:
-	rm -f $(BINDIR)/userdic-py
-	rm -rf $(LIBDIR)
+	$(PYTHON) scripts/make_uninstall.py --bindir "$(BINDIR)" --libdir "$(LIBDIR)"
