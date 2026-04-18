@@ -21,8 +21,8 @@ if __name__ == \"__main__\":
 
 WINDOWS_LAUNCHER_TEMPLATE = """@echo off
 setlocal
-set SCRIPT_DIR=%~dp0
-{python_launcher} -c "import pathlib,sys;sys.path.insert(0,str(pathlib.Path(sys.argv[1]).resolve().parent / 'lib' / 'userdic-py'));from userdic_py.converter import run;raise SystemExit(run())" "%SCRIPT_DIR%" %*
+set "SCRIPT_DIR=%~dp0"
+{python_launcher} -c "import os,pathlib,sys;script_dir=pathlib.Path(os.environ['SCRIPT_DIR']).resolve();sys.path.insert(0,str(script_dir.parent / 'lib' / 'userdic-py'));from userdic_py.converter import run;raise SystemExit(run(sys.argv[1:]))" %*
 """
 
 
