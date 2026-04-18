@@ -30,6 +30,26 @@ make install
 make install PREFIX=/path/to/prefix
 ```
 
+Windows 11 では既定で `%LOCALAPPDATA%/userdic-py` 配下にインストールされ、
+`%LOCALAPPDATA%/userdic-py/bin/userdic-py.cmd` と `%LOCALAPPDATA%/userdic-py/bin/userdic-py` を生成します。
+
+```powershell
+make install
+```
+
+Windows で Python ランチャーを変更したい場合は `WINDOWS_PYTHON` を指定できます。
+既定値は `py -3` です。
+
+```powershell
+make install WINDOWS_PYTHON=python
+```
+
+`make install` 自体の実行に使う Python コマンドを変更したい場合は `PYTHON` を指定できます。
+
+```powershell
+make install PYTHON=py
+```
+
 削除する場合:
 
 ```bash
